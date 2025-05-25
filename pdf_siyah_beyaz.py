@@ -5,6 +5,10 @@ from pdf2image import convert_from_path
 from PIL import Image, ImageEnhance
 import pikepdf
 
+# Uygulama klasöründeki poppler yolunu belirle
+UYGULAMA_KLASORU = os.path.dirname(os.path.abspath(__file__))
+POPLER_YOLU = os.path.join(UYGULAMA_KLASORU, "poppler-windows", "Library", "bin")
+
 def sec_ve_donustur():
     pdf_yolu = filedialog.askopenfilename(title="PDF Seç", filetypes=[("PDF dosyaları", "*.pdf")])
     if not pdf_yolu:
@@ -13,27 +17,25 @@ def sec_ve_donustur():
     try:
         messagebox.showinfo("İşlem Başladı", "PDF dönüştürülüyor. Lütfen bekleyin...")
 
-        # PDF'i görüntülere dönüştür
-        sayfalar = convert_from_path(pdf_yolu, dpi=200)
+        # Poppler path ile birlikte dönüştür
+        sayfalar = convert_from_path(pdf_yolu, dpi=200, poppler_path=POPLER_YOLU)
 
-        # Geçici klasör
         with tempfile.TemporaryDirectory() as tmpdir:
             img_paths = []
             for i, sayfa in enumerate(sayfalar):
-                # Siyah beyaz ve parlaklık ayarı
-                gri = sayfa.convert("L")  # Gri tonlamaya çevir
+                gri = sayfa.convert("L")  # Gri tonlama
                 parlaklik = ImageEnhance.Brightness(gri).enhance(1.5)  # Parlaklık artır
                 img_yolu = os.path.join(tmpdir, f"sayfa_{i}.png")
                 parlaklik.save(img_yolu)
                 img_paths.append(img_yolu)
 
-            # Görselleri yeni PDF olarak birleştir
+            # PDF'e çevir
             pdf_cikti = os.path.join(tmpdir, "cikti.pdf")
             Image.open(img_paths[0]).save(
                 pdf_cikti, save_all=True, append_images=[Image.open(p) for p in img_paths[1:]]
             )
 
-            # pikepdf ile optimize et ve kaydet
+            # Kullanıcıdan kayıt yeri al
             kayit_yolu = filedialog.asksaveasfilename(
                 title="Kaydet", defaultextension=".pdf", filetypes=[("PDF dosyaları", "*.pdf")]
             )
@@ -48,7 +50,7 @@ def sec_ve_donustur():
     except Exception as e:
         messagebox.showerror("Hata", f"Bir hata oluştu:\n{e}")
 
-# Basit Arayüz
+# Arayüz
 pencere = Tk()
 pencere.title("PDF Siyah Beyaz Dönüştürücü")
 pencere.geometry("400x150")
