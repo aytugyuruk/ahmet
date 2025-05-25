@@ -282,30 +282,86 @@ class PDFSiyahBeyazUygulamasi:
                 self.durum_etiket.config(text="PDF sayfaları görüntülere dönüştürülüyor...", fg=self.ana_renk)
                 self.root.update()
                 
-                # Windows için poppler yolunu kontrol et
+                # Windows icin poppler yolunu kontrol et
                 try:
-                    # Önce normal yolu dene
-                    pdf_sayfalar = convert_from_path(self.pdf_dosya_yolu)
-                except Exception as e:
-                    # Hata varsa, Windows için poppler yolunu belirle
-                    if sys.platform.startswith('win'):
-                        # PyInstaller ile paketlenmiş uygulamada poppler yolu
-                        if getattr(sys, 'frozen', False):
-                            # _MEIPASS PyInstaller tarafından oluşturulan geçici dizindir
-                            poppler_path = os.path.join(sys._MEIPASS, "poppler-windows")
+                    # Poppler yollarini kontrol et
+                    poppler_paths = [
+                        # EXE ile ayni dizinde
+                        os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "poppler-windows"),
+                        # Mevcut calisma dizininde
+                        os.path.join(os.getcwd(), "poppler-windows"),
+                        # Script ile ayni dizinde
+                        os.path.join(os.path.dirname(os.path.abspath(__file__)), "poppler-windows"),
+                        # PyInstaller _MEIPASS
+                        os.path.join(getattr(sys, '_MEIPASS', ''), "poppler-windows"),
+                        # Dist klasorunde
+                        os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "dist", "poppler-windows"),
+                        # Ust dizinde
+                        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "poppler-windows"),
+                    ]
+                    
+                    # Mevcut olan ilk poppler yolunu bul
+                    poppler_path = None
+                    for path in poppler_paths:
+                        if os.path.exists(path):
+                            poppler_path = path
+                            print(f"Poppler bulundu: {path}")
+                            break
+                    
+                    # Poppler yolu bulunamadiysa
+                    if not poppler_path:
+                        # Tum dizin yapisini goster
+                        print("Poppler bulunamadi. Dizin yapisi:")
+                        for path in poppler_paths:
+                            print(f"Kontrol edilen yol: {path} - Var mi: {os.path.exists(path)}")
+                        
+                        # Eger Windows'ta calisiyorsak ve poppler bulunamadiysa
+                        if sys.platform.startswith('win'):
+                            # Poppler'i indirme ve kurma islemini baslat
+                            messagebox.showinfo("Bilgi", "Poppler bulunamadi. Otomatik olarak indirilecek.")
+                            self.durum_etiket.config(text="Poppler indiriliyor...", fg=self.ana_renk)
+                            self.root.update()
+                            
+                            # Gecici dizin olustur
+                            temp_poppler_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "poppler-windows")
+                            os.makedirs(temp_poppler_dir, exist_ok=True)
+                            
+                            # Poppler'i indir
+                            import urllib.request
+                            import zipfile
+                            
+                            poppler_url = "https://github.com/oschwartz10612/poppler-windows/releases/download/v23.08.0-0/Release-23.08.0-0.zip"
+                            zip_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "poppler.zip")
+                            
+                            try:
+                                urllib.request.urlretrieve(poppler_url, zip_path)
+                                
+                                # Zip dosyasini cikar
+                                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                                    zip_ref.extractall(os.path.dirname(os.path.abspath(__file__)))
+                                
+                                # Zip dosyasini sil
+                                if os.path.exists(zip_path):
+                                    os.remove(zip_path)
+                                
+                                poppler_path = temp_poppler_dir
+                                self.durum_etiket.config(text="Poppler indirildi.", fg=self.ana_renk)
+                                self.root.update()
+                            except Exception as download_error:
+                                messagebox.showerror("Hata", f"Poppler indirilemedi: {str(download_error)}")
+                                raise e
                         else:
-                            # Geliştirme ortamında çalışıyorsa, uygulama dizinindeki poppler-windows klasörünü kullan
-                            poppler_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "poppler-windows")
-                        
-                        # Poppler yolu var mı kontrol et
-                        if not os.path.exists(poppler_path):
-                            messagebox.showerror("Hata", "Poppler bulunamadı. Lütfen 'poppler-windows' klasörünün uygulama ile aynı dizinde olduğundan emin olun.")
+                            # Windows degilse
+                            messagebox.showerror("Hata", "Poppler bulunamadi. Lutfen 'poppler-windows' klasorunun uygulama ile ayni dizinde oldugundan emin olun.")
                             raise e
-                        
-                        pdf_sayfalar = convert_from_path(self.pdf_dosya_yolu, poppler_path=poppler_path)
-                    else:
-                        # Windows değilse, orijinal hatayı göster
-                        raise e
+                    
+                    # PDF'yi goruntulere donustur
+                    pdf_sayfalar = convert_from_path(self.pdf_dosya_yolu, poppler_path=poppler_path)
+                except Exception as e:
+                    # Hata goster
+                    messagebox.showerror("Hata", f"PDF islenirken hata olustu: {str(e)}")
+                    self.durum_etiket.config(text=f"Hata: {str(e)}", fg="#F44336")
+                    raise e
                 
                 # Her sayfayı işle
                 self.durum_etiket.config(text="Sayfalar siyah beyaz hale dönüştürülüyor...", fg=self.ana_renk)
