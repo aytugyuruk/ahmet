@@ -21,14 +21,28 @@ build_script:
       Invoke-WebRequest -Uri $poppler_url -OutFile $poppler_zip
       Expand-Archive -Path $poppler_zip -DestinationPath .
       
+      # Poppler klasörünü kontrol et
+      if (Test-Path "poppler-windows") {
+        Write-Host "Poppler klasoru bulundu"
+        Get-ChildItem -Path "poppler-windows" -Recurse | Select-Object -First 5
+      } else {
+        Write-Host "Poppler klasoru bulunamadi, icerik listesi:"
+        Get-ChildItem -Path . -Directory
+      }
+      
+      # Poppler klasörünün doğru konumda olduğunu kontrol et
+      $poppler_path = (Get-ChildItem -Path . -Directory -Filter "*poppler*" -Recurse | Select-Object -First 1).FullName
+      Write-Host "Bulunan Poppler klasoru: $poppler_path"
+      
       # PyInstaller ile EXE olustur
-      & $env:PYTHON\python.exe -m PyInstaller --name=PDF_Siyah_Beyaz_Donusturucu --onefile --windowed --add-data="poppler-windows;poppler-windows" pdf_siyah_beyaz.py
+      & $env:PYTHON\python.exe -m PyInstaller --name=PDF_Siyah_Beyaz_Donusturucu --onefile --windowed --add-data="$poppler_path;poppler-windows" pdf_siyah_beyaz.py
       
       # EXE dosyasini kontrol et
       if (Test-Path "dist\PDF_Siyah_Beyaz_Donusturucu.exe") {
         Write-Host "EXE dosyasi basariyla olusturuldu!"
       } else {
-        Write-Error "EXE dosyasi olusturulamadi!"
+        Write-Host "EXE dosyasi olusturulamadi, spec dosyasini manuel olarak calistiriyoruz"
+        & $env:PYTHON\python.exe -m PyInstaller PDF_Siyah_Beyaz_Donusturucu.spec
       }
 
 artifacts:
