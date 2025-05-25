@@ -1,0 +1,36 @@
+version: 1.0.{build}
+
+image: Visual Studio 2019
+
+environment:
+  matrix:
+    - PYTHON: "C:\\Python310-x64"
+      PYTHON_VERSION: "3.10"
+      PYTHON_ARCH: "64"
+
+install:
+  - "%PYTHON%\\python.exe -m pip install --upgrade pip"
+  - "%PYTHON%\\python.exe -m pip install -r requirements.txt"
+  - "%PYTHON%\\python.exe -m pip install pyinstaller"
+
+build_script:
+  - ps: |
+      # Poppler indir
+      $poppler_url = "https://github.com/oschwartz10612/poppler-windows/releases/download/v23.08.0-0/Release-23.08.0-0.zip"
+      $poppler_zip = "poppler-windows.zip"
+      Invoke-WebRequest -Uri $poppler_url -OutFile $poppler_zip
+      Expand-Archive -Path $poppler_zip -DestinationPath .
+      
+      # PyInstaller ile EXE olustur
+      & $env:PYTHON\python.exe -m PyInstaller --name=PDF_Siyah_Beyaz_Donusturucu --onefile --windowed --add-data="poppler-windows;poppler-windows" pdf_siyah_beyaz.py
+      
+      # EXE dosyasini kontrol et
+      if (Test-Path "dist\PDF_Siyah_Beyaz_Donusturucu.exe") {
+        Write-Host "EXE dosyasi basariyla olusturuldu!"
+      } else {
+        Write-Error "EXE dosyasi olusturulamadi!"
+      }
+
+artifacts:
+  - path: dist\PDF_Siyah_Beyaz_Donusturucu.exe
+    name: PDF_Siyah_Beyaz_Donusturucu
